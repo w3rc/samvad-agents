@@ -13,7 +13,10 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json(
+      { status: 'error', code: 'SCHEMA_INVALID', message: 'Invalid JSON body' },
+      { status: 400 },
+    )
   }
 
   if (
@@ -22,28 +25,41 @@ export async function POST(req: NextRequest) {
     !('skill' in body) ||
     typeof (body as Record<string, unknown>).skill !== 'string'
   ) {
-    return NextResponse.json({ error: 'Missing required field: skill (string)' }, { status: 400 })
+    return NextResponse.json(
+      { status: 'error', code: 'SCHEMA_INVALID', message: 'Missing required field: skill (string)' },
+      { status: 400 },
+    )
   }
 
-  if (!('input' in body)) {
-    return NextResponse.json({ error: 'Missing required field: input' }, { status: 400 })
+  if (!('payload' in body)) {
+    return NextResponse.json(
+      { status: 'error', code: 'SCHEMA_INVALID', message: 'Missing required field: payload' },
+      { status: 400 },
+    )
   }
 
-  const { skill, input } = body as { skill: string; input: unknown }
+  const { skill, payload } = body as { skill: string; payload: unknown }
 
   const handler = handlers[skill]
   if (!handler) {
     return NextResponse.json(
-      { error: `Unknown skill: ${skill}. Available: ${Object.keys(handlers).join(', ')}` },
+      {
+        status: 'error',
+        code: 'SKILL_NOT_FOUND',
+        message: `Unknown skill: ${skill}. Available: ${Object.keys(handlers).join(', ')}`,
+      },
       { status: 404 },
     )
   }
 
   try {
-    const output = await handler(input)
-    return NextResponse.json({ skill, output })
+    const result = await handler(payload)
+    return NextResponse.json({ status: 'ok', result })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json(
+      { status: 'error', code: 'AGENT_UNAVAILABLE', message },
+      { status: 500 },
+    )
   }
 }
