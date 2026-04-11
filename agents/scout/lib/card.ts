@@ -2,12 +2,12 @@
 import type { AgentCard } from '@samvad-protocol/sdk'
 
 export const AGENT_CARD: AgentCard = {
-  id: 'agent://samvad-scout.vercel.app',
+  id: 'agent://samvad-agents-scout.vercel.app',
   name: 'Scout',
   version: '1.0.0',
   description:
     'Fetches and summarizes web pages. Give it a URL, get back clean readable text or a structured summary with key points.',
-  url: 'https://samvad-scout.vercel.app',
+  url: 'https://samvad-agents-scout.vercel.app',
   protocolVersion: '1.2',
   specializations: ['web-reading', 'research', 'summarization'],
   models: [{ provider: 'groq', model: 'llama-3.3-70b-versatile' }],
