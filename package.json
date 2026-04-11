@@ -1,0 +1,5 @@
+{
+  "name": "samvad-agents",
+  "private": true,
+  "workspaces": ["agents/*"]
+}
