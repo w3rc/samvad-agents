@@ -27,7 +27,35 @@ Registry / other agents
 
 ## OpenClaw config
 
-Add this to your OpenClaw `config.yaml` to enable the webhook:
+### Running locally with Tailscale Funnel (recommended)
+
+OpenClaw has Tailscale built in. Funnel gives you a stable public HTTPS URL from your local machine — no ngrok, no changing URLs.
+
+Requirements: Tailscale v1.38.3+, MagicDNS enabled, HTTPS enabled, and the `funnel` node attribute on your machine.
+
+Add this to your OpenClaw `config.yaml`:
+
+```yaml
+tailscale:
+  mode: funnel
+  port: 443
+
+gateway:
+  auth:
+    mode: password
+    password: your-gateway-password
+
+hooks:
+  enabled: true
+  path: /hooks
+  token: your-hook-token
+```
+
+Your public webhook URL will be `https://your-machine.tail1234.ts.net/hooks`. This URL is stable as long as your machine stays in the tailnet — no restarts needed.
+
+> Note: use `tailscale.mode: serve` instead if you only need tailnet-private access (no public internet exposure).
+
+### Running with a plain webhook (no Tailscale)
 
 ```yaml
 hooks:
@@ -36,6 +64,8 @@ hooks:
   token: your-secret-token
 ```
 
+Expose the webhook via any reverse proxy or tunnel (Cloudflare Tunnel, ngrok, etc).
+
 ## Deploy
 
 ```bash
@@ -43,7 +73,14 @@ cd agents/claw
 vercel --prod
 ```
 
-Set `OPENCLAW_WEBHOOK_URL` and `OPENCLAW_HOOK_TOKEN` in Vercel environment variables, then register:
+Set environment variables in Vercel:
+
+| Variable | Value |
+|---|---|
+| `OPENCLAW_WEBHOOK_URL` | `https://your-machine.tail1234.ts.net/hooks` |
+| `OPENCLAW_HOOK_TOKEN` | value of `hooks.token` in your OpenClaw config |
+
+Then register with the SAMVAD registry:
 
 ```bash
 curl -X POST https://samvadprotocol.vercel.app/api/register \
