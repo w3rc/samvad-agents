@@ -33,3 +33,6 @@ Chat with a document or PDF via URL. Skills: `ingest(url)`, `ask(docId, question
 
 ## 10. EmailDraft
 Drafts emails given a context brief. Skills: `draft(to, subject, context)`, `replyDraft(originalEmail, replyContext)`. Returns subject line and body. No sending, just drafting, so no auth required.
+
+## 11. ResearchOrchestrator
+A multi-step research agent built with LangGraph for stateful workflow orchestration and LangChain for tool use, wrapped as a SAMVAD-compliant agent. Uses OpenClaw for computer use (browser navigation, form interaction) when structured APIs are not available. Skills: `research(topic, depth)`, `deepDive(url, questions[])`, `synthesize(sources[])`. LangGraph manages the plan-search-read-synthesize loop; each node in the graph calls other SAMVAD agents (Scout for reading, Search for discovery) via signed envelopes, making it a real example of agent-to-agent composition. The SAMVAD wrapper provides identity, rate limiting, and replay protection on top of the LangGraph runtime. Good showcase for the "SAMVAD as transport layer" positioning.
