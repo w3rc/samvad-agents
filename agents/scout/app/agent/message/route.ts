@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readPage } from '@/lib/skills/readPage'
 import { summarizePage } from '@/lib/skills/summarizePage'
 
+// Wildcard origin is intentional: Scout skills are unauthenticated.
+// If credentials (Authorization, cookies) are ever added, replace '*'
+// with an explicit allowlist and set Access-Control-Allow-Credentials: true.
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -14,7 +17,7 @@ const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
   summarizePage: summarizePage as (input: unknown) => Promise<unknown>,
 }
 
-export function OPTIONS() {
+export function OPTIONS(_req: Request) {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 

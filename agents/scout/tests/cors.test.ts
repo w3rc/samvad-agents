@@ -1,15 +1,15 @@
-// agents/scout/app/agent/message/route.cors.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+// agents/scout/tests/cors.test.ts
+import { describe, it, expect, vi } from 'vitest'
 
 // Mock skill modules before importing route
-vi.mock('@/lib/skills/readPage', () => ({
+vi.mock('../lib/skills/readPage', () => ({
   readPage: vi.fn().mockResolvedValue({ title: 'Test', content: 'body', url: 'https://example.com', fetchedAt: '2026-01-01' }),
 }))
-vi.mock('@/lib/skills/summarizePage', () => ({
+vi.mock('../lib/skills/summarizePage', () => ({
   summarizePage: vi.fn().mockResolvedValue({ summary: 'A summary', url: 'https://example.com', fetchedAt: '2026-01-01' }),
 }))
 
-const { POST, OPTIONS } = await import('./route')
+const { POST, OPTIONS } = await import('../app/agent/message/route')
 
 describe('CORS headers', () => {
   it('POST response includes Access-Control-Allow-Origin: *', async () => {
