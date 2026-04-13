@@ -30,6 +30,7 @@ export async function callOpenClaw(
     body: JSON.stringify({
       model: 'openclaw',
       messages: [{ role: 'user', content: message }],
+      user: channel,
     }),
   })
 
