@@ -1,7 +1,8 @@
 // lib/card.ts
 import type { AgentCard } from '@samvad-protocol/sdk'
+import { getKeypair } from './keys'
 
-export const AGENT_CARD: AgentCard = {
+const BASE_CARD: Omit<AgentCard, 'publicKeys'> & { publicKeys: AgentCard['publicKeys'] } = {
   id: 'agent://samvad-agents-claw.vercel.app',
   name: 'Claw',
   version: '1.0.0',
@@ -48,4 +49,21 @@ export const AGENT_CARD: AgentCard = {
     stream: '/agent/stream',
     health: '/agent/health',
   },
-} as AgentCard
+}
+
+// Resolve the card with the public key populated from SAMVAD_PRIVATE_KEY.
+// Falls back to empty publicKeys if the key isn't configured (health still works).
+export async function getAgentCard(): Promise<AgentCard> {
+  try {
+    const kp = await getKeypair()
+    return {
+      ...BASE_CARD,
+      publicKeys: [{ kid: kp.kid, key: kp.publicKeyBase64, active: true }],
+    } as AgentCard
+  } catch {
+    return BASE_CARD as AgentCard
+  }
+}
+
+// Synchronous reference for protocol.ts (uses the static ID/fields only)
+export const AGENT_CARD = BASE_CARD as AgentCard

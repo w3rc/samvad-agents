@@ -1,6 +1,6 @@
 // app/agent/intro/route.ts
 import { NextResponse } from 'next/server'
-import { AGENT_CARD } from '@/lib/card'
+import { getAgentCard } from '@/lib/card'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,8 +12,9 @@ export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
 }
 
-export function GET() {
-  return NextResponse.json(AGENT_CARD, {
+export async function GET() {
+  const card = await getAgentCard()
+  return NextResponse.json(card, {
     headers: { ...CORS_HEADERS, 'Cache-Control': 'public, max-age=3600' },
   })
 }

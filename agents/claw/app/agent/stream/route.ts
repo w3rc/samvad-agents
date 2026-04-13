@@ -1,16 +1,7 @@
 // app/agent/stream/route.ts
-// SSE streaming endpoint. Sends progress events while OpenClaw processes
-// the request, then a final 'result' event with the reply.
-
 import { NextRequest } from 'next/server'
 import { callOpenClaw } from '@/lib/openclaw'
-import { checkRateLimit } from '@/lib/rate-limiter'
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
+import { verifyIncoming, CORS_HEADERS } from '@/lib/protocol'
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS })
@@ -21,75 +12,56 @@ function sseEvent(event: string, data: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  const bodyBytes = new Uint8Array(await req.arrayBuffer())
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  const rl = checkRateLimit(ip)
-  if (!rl.allowed) {
-    return new Response(
-      JSON.stringify({ status: 'error', code: 'RATE_LIMITED', message: `Rate limit exceeded (${rl.limit} req/min)` }),
-      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60', ...CORS_HEADERS } },
-    )
+
+  const result = await verifyIncoming('POST', '/agent/stream', bodyBytes, req.headers, ip)
+  if (!result.ok) {
+    // verifyIncoming returns NextResponse but stream needs raw Response
+    const body = await result.response.json()
+    return new Response(JSON.stringify(body), {
+      status: result.response.status,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    })
   }
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return new Response(
-      JSON.stringify({ status: 'error', code: 'SCHEMA_INVALID', message: 'Invalid JSON body' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-    )
-  }
+  const { envelope, spanId } = result.data
 
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    !('skill' in body) ||
-    typeof (body as Record<string, unknown>).skill !== 'string' ||
-    !('payload' in body)
-  ) {
+  if (envelope.skill !== 'chat') {
     return new Response(
-      JSON.stringify({ status: 'error', code: 'SCHEMA_INVALID', message: 'Missing required fields: skill, payload' }),
-      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
-    )
-  }
-
-  const { skill, payload } = body as { skill: string; payload: unknown }
-
-  if (skill !== 'chat') {
-    return new Response(
-      JSON.stringify({ status: 'error', code: 'SKILL_NOT_FOUND', message: `Unknown skill: ${skill}. Available: chat` }),
+      JSON.stringify({ traceId: envelope.traceId, spanId, status: 'error', error: { code: 'SKILL_NOT_FOUND', message: `Unknown skill: ${envelope.skill}. Available: chat` } }),
       { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   }
 
-  const p = payload as Record<string, unknown>
-  if (!p || typeof p.message !== 'string' || !p.message.trim()) {
+  const p = envelope.payload as Record<string, unknown>
+  if (typeof p.message !== 'string' || !p.message.trim()) {
     return new Response(
-      JSON.stringify({ status: 'error', code: 'SCHEMA_INVALID', message: 'payload.message (string) is required' }),
+      JSON.stringify({ traceId: envelope.traceId, spanId, status: 'error', error: { code: 'SCHEMA_INVALID', message: 'payload.message (string) is required' } }),
       { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     )
   }
 
   const message = p.message
   const channel = typeof p.channel === 'string' ? p.channel : 'samvad'
+  const traceId = envelope.traceId
 
   const stream = new ReadableStream({
     async start(controller) {
       const encode = (s: string) => new TextEncoder().encode(s)
 
-      // Keep-alive comment every 15s while waiting for OpenClaw
       let done = false
       const keepAlive = setInterval(() => {
         if (!done) controller.enqueue(encode(': keep-alive\n\n'))
       }, 15_000)
 
       try {
-        controller.enqueue(encode(sseEvent('status', { status: 'processing' })))
-        const result = await callOpenClaw(message, channel)
-        controller.enqueue(encode(sseEvent('result', { status: 'ok', result })))
+        controller.enqueue(encode(sseEvent('status', { traceId, spanId, status: 'processing' })))
+        const res = await callOpenClaw(message, channel)
+        controller.enqueue(encode(sseEvent('result', { traceId, spanId, status: 'ok', result: res })))
       } catch (e) {
-        const error = e instanceof Error ? e.message : String(e)
-        controller.enqueue(encode(sseEvent('error', { status: 'error', code: 'AGENT_UNAVAILABLE', message: error })))
+        const msg = e instanceof Error ? e.message : String(e)
+        controller.enqueue(encode(sseEvent('error', { traceId, spanId, status: 'error', error: { code: 'AGENT_UNAVAILABLE', message: msg } })))
       } finally {
         done = true
         clearInterval(keepAlive)

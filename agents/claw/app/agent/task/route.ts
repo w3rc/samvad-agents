@@ -3,64 +3,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { callOpenClaw } from '@/lib/openclaw'
 import { createTask, updateTask } from '@/lib/task-store'
-import { checkRateLimit } from '@/lib/rate-limiter'
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
+import { verifyIncoming, CORS_HEADERS } from '@/lib/protocol'
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 
 export async function POST(req: NextRequest) {
+  const bodyBytes = new Uint8Array(await req.arrayBuffer())
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  const rl = checkRateLimit(ip)
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { status: 'error', code: 'RATE_LIMITED', message: `Rate limit exceeded (${rl.limit} req/min)` },
-      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': '60' } },
-    )
-  }
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json(
-      { status: 'error', code: 'SCHEMA_INVALID', message: 'Invalid JSON body' },
-      { status: 400, headers: CORS_HEADERS },
-    )
-  }
+  const result = await verifyIncoming('POST', '/agent/task', bodyBytes, req.headers, ip)
+  if (!result.ok) return result.response
 
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    !('skill' in body) ||
-    typeof (body as Record<string, unknown>).skill !== 'string' ||
-    !('payload' in body)
-  ) {
-    return NextResponse.json(
-      { status: 'error', code: 'SCHEMA_INVALID', message: 'Missing required fields: skill, payload' },
-      { status: 400, headers: CORS_HEADERS },
-    )
-  }
+  const { envelope, spanId } = result.data
 
-  const { skill, payload } = body as { skill: string; payload: unknown }
-
-  if (skill !== 'chat') {
+  if (envelope.skill !== 'chat') {
     return NextResponse.json(
-      { status: 'error', code: 'SKILL_NOT_FOUND', message: `Unknown skill: ${skill}. Available: chat` },
+      { traceId: envelope.traceId, spanId, status: 'error', error: { code: 'SKILL_NOT_FOUND', message: `Unknown skill: ${envelope.skill}. Available: chat` } },
       { status: 404, headers: CORS_HEADERS },
     )
   }
 
-  const p = payload as Record<string, unknown>
-  if (!p || typeof p.message !== 'string' || !p.message.trim()) {
+  const p = envelope.payload as Record<string, unknown>
+  if (typeof p.message !== 'string' || !p.message.trim()) {
     return NextResponse.json(
-      { status: 'error', code: 'SCHEMA_INVALID', message: 'payload.message (string) is required' },
+      { traceId: envelope.traceId, spanId, status: 'error', error: { code: 'SCHEMA_INVALID', message: 'payload.message (string) is required' } },
       { status: 400, headers: CORS_HEADERS },
     )
   }
@@ -71,12 +39,11 @@ export async function POST(req: NextRequest) {
   const message = p.message
   const channel = typeof p.channel === 'string' ? p.channel : 'samvad'
 
-  // Dispatch after response flies
   Promise.resolve().then(async () => {
     updateTask(taskId, { status: 'running' })
     try {
-      const result = await callOpenClaw(message, channel)
-      updateTask(taskId, { status: 'completed', result })
+      const res = await callOpenClaw(message, channel)
+      updateTask(taskId, { status: 'completed', result: res })
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e)
       updateTask(taskId, { status: 'failed', error })
@@ -84,7 +51,7 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json(
-    { status: 'accepted', taskId },
+    { traceId: envelope.traceId, spanId, status: 'accepted', taskId },
     { status: 202, headers: CORS_HEADERS },
   )
 }
