@@ -15,7 +15,10 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Content-Digest, Signature-Input, Signature',
 }
 
-// 5-minute nonce window
+// 5-minute nonce window.
+// LIMITATION: On Vercel serverless, each instance has its own NonceStore.
+// A replay hitting a different instance will not be detected. For production
+// hardening, replace with Upstash Redis (SET nonce EX 300 NX).
 const nonceStore = new NonceStore(5 * 60 * 1000)
 
 // Cache of remote agent public keys: agent:// ID → PublicKey[]
@@ -23,9 +26,11 @@ const peerKeyCache = new Map<string, { keys: PublicKey[]; fetchedAt: number }>()
 const PEER_CACHE_TTL_MS = 5 * 60 * 1000
 
 async function fetchPeerKeys(agentUrl: string): Promise<PublicKey[]> {
-  // Derive card URL from agent:// ID
-  const url = agentUrl.replace('agent://', 'https://')
-  const cardUrl = `${url}/.well-known/agent.json`
+  // Derive card URL from agent:// ID using proper URL parsing
+  // agent://example.com → https://example.com/.well-known/agent.json
+  // agent://example.com/sub → https://example.com/.well-known/agent.json (origin only)
+  const origin = new URL(agentUrl.replace('agent://', 'https://')).origin
+  const cardUrl = `${origin}/.well-known/agent.json`
   const cached = peerKeyCache.get(agentUrl)
   if (cached && Date.now() - cached.fetchedAt < PEER_CACHE_TTL_MS) return cached.keys
 
@@ -97,6 +102,12 @@ export async function verifyIncoming(
     }
     if (!body.payload || typeof body.payload !== 'object') {
       return error(400, 'SCHEMA_INVALID', 'Missing required field: payload')
+    }
+
+    // Lightweight mode is only allowed for public trust skills
+    const skill = AGENT_CARD.skills.find(s => s.id === body.skill)
+    if (skill && skill.trust !== 'public') {
+      return error(401, 'AUTH_FAILED', `Skill "${body.skill}" requires ${skill.trust} access — send a full signed envelope`)
     }
 
     // Synthesize a minimal envelope for downstream handlers
@@ -191,8 +202,18 @@ export async function verifyIncoming(
     return error(401, 'AUTH_FAILED', 'Signature verification failed')
   }
 
-  // 4. Trust tier (chat skill is public — no further check needed)
-  // For trusted-peers skills, add allowedPeers check here
+  // 4. Trust tier enforcement
+  const skill = AGENT_CARD.skills.find(s => s.id === envelope.skill)
+  if (skill) {
+    if (skill.trust === 'trusted-peers') {
+      const allowed = skill.allowedPeers ?? []
+      if (!allowed.includes(envelope.from)) {
+        return error(403, 'AUTH_FAILED', `Caller ${envelope.from} is not in allowedPeers for skill "${envelope.skill}"`)
+      }
+    }
+    // 'authenticated' would check envelope.auth here
+    // 'public' — no further check needed
+  }
 
   return {
     ok: true,

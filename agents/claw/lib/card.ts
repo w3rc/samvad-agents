@@ -65,5 +65,6 @@ export async function getAgentCard(): Promise<AgentCard> {
   }
 }
 
-// Synchronous reference for protocol.ts (uses the static ID/fields only)
+// Synchronous reference for protocol.ts — uses id, skills, and static fields only.
+// DO NOT use for publicKeys — those are populated dynamically by getAgentCard().
 export const AGENT_CARD = BASE_CARD as AgentCard

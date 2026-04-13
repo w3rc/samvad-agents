@@ -26,7 +26,7 @@ export async function getKeypair(): Promise<AgentKeypair> {
   const publicKey = await ed.getPublicKeyAsync(privateKey)
 
   cached = {
-    kid: 'claw-key-1',
+    kid: 'scout-key-1',
     privateKey,
     publicKey,
     publicKeyBase64: encodePublicKey(publicKey),
