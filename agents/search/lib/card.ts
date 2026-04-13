@@ -4,7 +4,7 @@ import { getKeypair } from './keys'
 
 const BASE_CARD: AgentCard = {
   id: 'agent://samvad-agents-search.vercel.app',
-  name: 'Search',
+  name: 'Web Search',
   version: '1.0.0',
   description:
     'Web search agent. Give it a query, get back ranked results with titles, snippets, and URLs. Supports general search and news search.',
