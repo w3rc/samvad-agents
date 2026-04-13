@@ -11,7 +11,7 @@ const BASE_CARD: AgentCard = {
   url: 'https://samvad-agents-translator.vercel.app',
   protocolVersion: '1.2',
   specializations: ['translation', 'language', 'multilingual'],
-  models: [{ provider: 'google', model: 'gemini-2.0-flash' }],
+  models: [{ provider: 'google', model: 'gemini-2.5-flash' }],
   skills: [
     {
       id: 'translate',
