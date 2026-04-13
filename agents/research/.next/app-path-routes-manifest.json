@@ -1,0 +1,12 @@
+{
+  "/.well-known/agent.json/route": "/.well-known/agent.json",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/agent/health/route": "/agent/health",
+  "/agent/intro/route": "/agent/intro",
+  "/agent/message/route": "/agent/message",
+  "/agent/stream/route": "/agent/stream",
+  "/agent/task/[taskId]/route": "/agent/task/[taskId]",
+  "/agent/task/route": "/agent/task",
+  "/page": "/"
+}

@@ -1,0 +1,3 @@
+module.exports=[14119,a=>{"use strict";var b=a.i(28881);a.s(["default",0,function({children:a}){return(0,b.jsx)("html",{lang:"en",children:(0,b.jsx)("body",{children:a})})},"metadata",0,{title:"Research — SAMVAD Agent",description:"Multi-agent research assistant. Searches the web, calls Scout over SAMVAD, synthesizes a research brief."}])},40725,a=>{a.n(a.i(14119))}];
+
+//# sourceMappingURL=agents_research_app_layout_tsx_00kyu25._.js.map

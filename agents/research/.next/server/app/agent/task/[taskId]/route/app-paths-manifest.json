@@ -1,0 +1,3 @@
+{
+  "/agent/task/[taskId]/route": "app/agent/task/[taskId]/route.js"
+}
