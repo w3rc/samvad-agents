@@ -1,7 +1,8 @@
 // lib/card.ts
 import type { AgentCard } from '@samvad-protocol/sdk'
+import { getKeypair } from './keys'
 
-export const AGENT_CARD: AgentCard = {
+const BASE_CARD: AgentCard = {
   id: 'agent://samvad-agents-scout.vercel.app',
   name: 'Scout',
   version: '1.0.0',
@@ -74,3 +75,17 @@ export const AGENT_CARD: AgentCard = {
     health: '/agent/health',
   },
 } as AgentCard
+
+export async function getAgentCard(): Promise<AgentCard> {
+  try {
+    const kp = await getKeypair()
+    return {
+      ...BASE_CARD,
+      publicKeys: [{ kid: kp.kid, key: kp.publicKeyBase64, active: true }],
+    } as AgentCard
+  } catch {
+    return BASE_CARD
+  }
+}
+
+export const AGENT_CARD = BASE_CARD
