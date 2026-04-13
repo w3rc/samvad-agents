@@ -1,8 +1,8 @@
 // lib/skills/research.ts
-// Main research skill — search → call Scout → synthesize.
-// Supports both sync (returns final result) and streaming (emits status events).
+// Main research skill — call Search agent → call Scout agent → synthesize.
+// All inter-agent calls go over SAMVAD.
 
-import { searchTopic, TavilyError } from '../tavily'
+import { callSearchAgent, SearchAgentError } from '../search-client'
 import { callScoutSummarize, ScoutError } from '../scout-client'
 import { synthesize, GroqError } from '../groq'
 
@@ -33,18 +33,20 @@ export async function research(
 ): Promise<ResearchOutput> {
   const { topic } = input
   let urls: string[]
+  let agentCalls = 0
 
-  // 1. Search or use provided URLs
+  // 1. Search via Search agent or use provided URLs
   if (input.urls && input.urls.length > 0) {
     urls = input.urls.slice(0, 3)
     onStatus?.('found', `Using ${urls.length} provided URLs`)
   } else {
-    onStatus?.('searching', `Searching Tavily for "${topic}"...`)
+    onStatus?.('calling_search', `Calling Search → search for "${topic}"...`)
     try {
-      const results = await searchTopic(topic, 3)
+      const results = await callSearchAgent(topic, 3)
       urls = results.map(r => r.url)
+      agentCalls++
     } catch (e) {
-      if (e instanceof TavilyError) throw new Error(`Search failed: ${e.message}`)
+      if (e instanceof SearchAgentError) throw new Error(`Search agent failed: ${e.message}`)
       throw e
     }
     onStatus?.('found', `Found ${urls.length} sources`)
@@ -56,7 +58,6 @@ export async function research(
 
   // 2. Call Scout for each URL
   const sources: Array<{ title: string; summary: string; keyPoints: string[]; url: string }> = []
-  let agentCalls = 0
 
   for (const url of urls) {
     const shortUrl = url.replace(/^https?:\/\//, '').split('/').slice(0, 2).join('/')
@@ -67,7 +68,6 @@ export async function research(
       agentCalls++
     } catch (e) {
       if (e instanceof ScoutError) {
-        // Skip failed sources, continue with the rest
         onStatus?.('scout_error', `Scout failed for ${shortUrl}: ${e.message}`)
         continue
       }

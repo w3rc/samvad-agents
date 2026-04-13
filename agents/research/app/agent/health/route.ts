@@ -12,16 +12,15 @@ export function OPTIONS() {
 }
 
 export async function GET() {
-  const tavily = Boolean(process.env.TAVILY_API_KEY)
   const groq = Boolean(process.env.GROQ_API_KEY)
-  const configured = tavily && groq
 
   return NextResponse.json(
     {
-      status: configured ? 'ok' : 'degraded',
+      status: groq ? 'ok' : 'degraded',
       agent: 'research',
       protocolVersion: '1.2',
-      tavily: tavily ? 'configured' : 'missing TAVILY_API_KEY',
+      search: 'via Search agent (SAMVAD)',
+      scout: 'via Scout agent (SAMVAD)',
       groq: groq ? 'configured' : 'missing GROQ_API_KEY',
     },
     { headers: CORS_HEADERS },
