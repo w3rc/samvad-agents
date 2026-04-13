@@ -7,7 +7,7 @@ const BASE_CARD: AgentCard = {
   name: 'Research',
   version: '1.0.0',
   description:
-    'Multi-agent research assistant. Give it a topic, it searches the web, calls Scout to read and summarize sources over SAMVAD, then synthesizes a structured research brief.',
+    'Multi-agent research assistant. Give it a topic, it calls Web Search over SAMVAD to find sources, calls Scout over SAMVAD to summarize each one, then synthesizes a structured research brief.',
   url: 'https://samvad-agents-research.vercel.app',
   protocolVersion: '1.2',
   specializations: ['research', 'synthesis', 'multi-agent'],
