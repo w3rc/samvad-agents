@@ -12,15 +12,20 @@ export function OPTIONS() {
 }
 
 export async function GET() {
-  const webhookUrl = process.env.OPENCLAW_WEBHOOK_URL
-  const configured = Boolean(webhookUrl)
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL
+  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN
+  const configured = Boolean(gatewayUrl && gatewayToken)
 
   return NextResponse.json(
     {
       status: configured ? 'ok' : 'degraded',
       agent: 'claw',
       protocolVersion: '1.2',
-      openclaw: configured ? 'configured' : 'missing OPENCLAW_WEBHOOK_URL',
+      openclaw: configured
+        ? 'configured'
+        : !gatewayUrl
+          ? 'missing OPENCLAW_GATEWAY_URL'
+          : 'missing OPENCLAW_GATEWAY_TOKEN',
     },
     { headers: CORS_HEADERS },
   )

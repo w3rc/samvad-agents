@@ -1,5 +1,6 @@
 // lib/openclaw.ts
-// Thin client for forwarding messages to an OpenClaw Gateway webhook.
+// Client for the OpenClaw Gateway's OpenAI-compatible /v1/chat/completions endpoint.
+// Auth: gateway token (OPENCLAW_GATEWAY_TOKEN) + x-openclaw-scopes: operator.write header.
 
 export interface OpenClawResponse {
   reply: string
@@ -10,35 +11,37 @@ export async function callOpenClaw(
   message: string,
   channel = 'samvad',
 ): Promise<OpenClawResponse> {
-  const webhookUrl = process.env.OPENCLAW_WEBHOOK_URL
-  const hookToken = process.env.OPENCLAW_HOOK_TOKEN
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL
+  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN
 
-  if (!webhookUrl) {
-    throw new Error('OPENCLAW_WEBHOOK_URL is not configured')
-  }
+  if (!gatewayUrl) throw new Error('OPENCLAW_GATEWAY_URL is not configured')
+  if (!gatewayToken) throw new Error('OPENCLAW_GATEWAY_TOKEN is not configured')
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  if (hookToken) {
-    headers['Authorization'] = `Bearer ${hookToken}`
-  }
+  const url = `${gatewayUrl.replace(/\/$/, '')}/v1/chat/completions`
 
-  const res = await fetch(webhookUrl, {
+  const res = await fetch(url, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ message, channel }),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${gatewayToken}`,
+      'x-openclaw-scopes': 'operator.write',
+      'x-openclaw-message-channel': channel,
+    },
+    body: JSON.stringify({
+      model: 'openclaw',
+      messages: [{ role: 'user', content: message }],
+    }),
   })
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`OpenClaw webhook returned ${res.status}: ${text}`)
+    throw new Error(`OpenClaw gateway returned ${res.status}: ${text}`)
   }
 
-  const data = await res.json() as { reply?: string; text?: string; message?: string }
+  const data = await res.json() as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
 
-  // OpenClaw webhooks can return different shapes depending on version/config.
-  // Normalise to { reply, channel }.
-  const reply = data.reply ?? data.text ?? data.message ?? ''
+  const reply = data.choices?.[0]?.message?.content ?? ''
   return { reply, channel }
 }

@@ -32,7 +32,7 @@ export const AGENT_CARD: AgentCard = {
         },
         required: ['reply'],
       },
-      modes: ['sync'],
+      modes: ['sync', 'async', 'stream'],
       trust: 'public',
     },
   ],
