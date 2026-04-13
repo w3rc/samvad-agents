@@ -1,6 +1,7 @@
 // app/agent/message/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { callOpenClaw } from '@/lib/openclaw'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,15 @@ export function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = checkRateLimit(ip)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { status: 'error', code: 'RATE_LIMITED', message: `Rate limit exceeded (${rl.limit} req/min)` },
+      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': '60' } },
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()
