@@ -88,14 +88,20 @@ export async function getVerdict(
     throw new GroqError('Verdict synthesis failed: invalid JSON response')
   }
 
+  const VALID_RELEVANCE = new Set(['supports', 'refutes', 'neutral'])
+
   if (
     typeof parsed.confidence !== 'number' ||
     !['supports', 'refutes'].includes(parsed.direction) ||
     typeof parsed.reasoning !== 'string' ||
-    !Array.isArray(parsed.citationRelevance)
+    !Array.isArray(parsed.citationRelevance) ||
+    parsed.citationRelevance.some((r) => !VALID_RELEVANCE.has(r))
   ) {
     throw new GroqError('Verdict synthesis failed: unexpected response shape')
   }
 
-  return parsed
+  return {
+    ...parsed,
+    confidence: Math.min(1, Math.max(0, parsed.confidence)),
+  }
 }

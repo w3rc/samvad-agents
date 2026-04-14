@@ -42,6 +42,7 @@ function deriveLabel(
 }
 
 export async function factCheck(input: unknown): Promise<FactCheckOutput> {
+  if (!input || typeof input !== 'object') throw new FactCheckError('Invalid input')
   const { claim, context } = input as FactCheckInput
   if (!claim?.trim()) throw new FactCheckError('claim is required')
 
@@ -72,21 +73,24 @@ export async function factCheck(input: unknown): Promise<FactCheckOutput> {
     }
   }
 
-  // 2. Scout each URL concurrently
-  const sources: Array<{ title: string; summary: string; url: string }> = []
+  // 2. Scout each URL concurrently (indexed to preserve deterministic ordering)
+  const scoutResults: Array<{ title: string; summary: string; url: string } | null> =
+    new Array(urls.length).fill(null)
 
-  await Promise.allSettled(
-    urls.map(async (url) => {
-      try {
-        const result = await callScoutSummarize(url, claim)
-        sources.push({ title: result.title, summary: result.summary, url })
-        agentCalls++
-      } catch (e) {
-        if (!(e instanceof ScoutError)) throw e
-        // Skip failed Scout calls silently
-      }
+  const settled = await Promise.allSettled(
+    urls.map(async (url, i) => {
+      const result = await callScoutSummarize(url, claim)
+      scoutResults[i] = { title: result.title, summary: result.summary, url }
+      agentCalls++
     })
   )
+
+  // Re-throw any non-ScoutError failures (programming errors, network issues)
+  for (const r of settled) {
+    if (r.status === 'rejected' && !(r.reason instanceof ScoutError)) throw r.reason
+  }
+
+  const sources = scoutResults.filter((s): s is NonNullable<typeof s> => s !== null)
 
   if (sources.length === 0) {
     throw new FactCheckError('All Scout calls failed — no sources to evaluate')
