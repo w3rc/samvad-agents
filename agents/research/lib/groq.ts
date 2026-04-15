@@ -15,13 +15,16 @@ export class GroqError extends Error {
 
 const SYSTEM_PROMPT = `You are a research synthesizer. Given summaries from multiple web sources about a topic, produce a unified research brief.
 
-Always respond with valid JSON in this exact shape:
-{
-  "brief": "2-3 paragraph synthesis that combines insights from all sources into a coherent narrative",
-  "keyFindings": ["finding 1", "finding 2", "finding 3", "finding 4", "finding 5"]
-}
+You MUST respond with ONLY a valid JSON object. No prose before or after. No markdown. No code fences. Every string value MUST be properly quoted.
 
-keyFindings should have 3-7 items. Each finding should be a specific, actionable insight — not a vague summary. No markdown, no extra fields.`
+Respond in exactly this shape:
+{"brief":"your 2-3 paragraph synthesis here","keyFindings":["specific finding 1","specific finding 2","specific finding 3"]}
+
+Rules:
+- brief: 2-3 paragraphs combining insights from all sources
+- keyFindings: 3-7 items, each a specific actionable insight
+- ALL string values must be double-quoted
+- No trailing commas, no comments, no extra fields`
 
 export async function synthesize(
   topic: string,
