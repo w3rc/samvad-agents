@@ -35,7 +35,7 @@ function deriveLabel(
   direction: 'supports' | 'refutes',
   sourceCount: number,
 ): FactCheckOutput['label'] {
-  if (sourceCount < 2) return 'unverifiable'
+  if (sourceCount === 0) return 'unverifiable'
   if (confidence >= 0.75) return direction === 'supports' ? 'supported' : 'refuted'
   if (confidence >= 0.40) return 'disputed'
   return 'unverifiable'
@@ -96,16 +96,7 @@ export async function factCheck(input: unknown): Promise<FactCheckOutput> {
     throw new FactCheckError('All Scout calls failed — no sources to evaluate')
   }
 
-  if (sources.length < 2) {
-    return {
-      claim,
-      confidence: 0,
-      label: 'unverifiable',
-      reasoning: 'Insufficient sources were available to verify this claim.',
-      citations: sources.map(s => ({ url: s.url, title: s.title, relevance: 'neutral' as const })),
-      agentCalls,
-    }
-  }
+  // Even a single source is enough to attempt a verdict — let Groq decide confidence
 
   // 3. Groq verdict
   let verdict
