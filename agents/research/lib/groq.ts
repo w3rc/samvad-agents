@@ -50,7 +50,6 @@ export async function synthesize(
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userContent },
         ],
-        response_format: { type: 'json_object' },
         temperature: 0.3,
         max_tokens: 2048,
       }),
@@ -61,17 +60,21 @@ export async function synthesize(
   }
 
   if (!res.ok) {
-    throw new GroqError(`Groq API returned HTTP ${res.status}`)
+    const errBody = await res.text().catch(() => res.statusText)
+    throw new GroqError(`Groq API returned HTTP ${res.status}: ${errBody}`)
   }
 
   const data = await res.json() as { choices: Array<{ message: { content: string } }> }
   const raw = data.choices[0]?.message?.content ?? ''
 
+  // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+
   let parsed: { brief: string; keyFindings: string[] }
   try {
-    parsed = JSON.parse(raw)
+    parsed = JSON.parse(cleaned)
   } catch {
-    throw new GroqError(`Model returned non-JSON response: ${raw.slice(0, 100)}`)
+    throw new GroqError(`Model returned non-JSON response: ${raw.slice(0, 200)}`)
   }
 
   if (typeof parsed.brief !== 'string' || !Array.isArray(parsed.keyFindings)) {
