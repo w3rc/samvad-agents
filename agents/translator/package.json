@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@samvad-protocol/sdk": "^0.5.0",
+    "@samvad-protocol/sdk": "^0.6.0",
     "@noble/ed25519": "^2.2.3",
     "next": "16.2.3",
     "react": "19.2.4",
